@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Bell, 
   CheckCircle, 
@@ -12,7 +12,8 @@ import {
   ArrowUpRight,
   User,
   Activity,
-  Maximize
+  Maximize,
+  Minimize
 } from 'lucide-react';
 import AnimatedCounter from './AnimatedCounter';
 import { ServiceMetric, DeptEfficiency } from '../types';
@@ -41,6 +42,9 @@ interface Highlight {
 const Dashboard: React.FC = () => {
   const [total, setTotal] = useState(1024560);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const dashboardRef = useRef<HTMLDivElement>(null);
+
   const [highlights, setHighlights] = useState<Highlight[]>([
     { icon: <Zap size={14} />, label: 'MAIS SOLICITADO', value: 'Limpeza Urbana', type: 'demand' },
     { icon: <Star size={14} />, label: 'MELHOR AVALIADO', value: 'Iluminação Pública (4.9)', type: 'rating' },
@@ -62,8 +66,29 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [highlights.length]);
 
+  // Lógica para detectar se saiu do modo tela cheia (via teclado por exemplo)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      dashboardRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#0a0f1e] text-white overflow-hidden p-4 md:p-6 2xl:p-10">
+    <div 
+      ref={dashboardRef}
+      className={`w-screen flex flex-col bg-[#0a0f1e] text-white p-4 md:p-6 2xl:p-10 custom-scrollbar transition-all duration-500 
+        ${isFullscreen || window.innerWidth >= 1920 ? 'h-screen overflow-hidden' : 'min-h-screen overflow-y-auto'}`}
+    >
       {/* BACKGROUND EFFECTS */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[120px]" />
@@ -71,7 +96,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* HEADER COMPACTO */}
-      <nav className="flex items-center justify-between mb-4 md:mb-6 2xl:mb-10 relative z-10 shrink-0">
+      <nav className="flex items-center justify-between mb-4 md:mb-6 2xl:mb-8 relative z-10 shrink-0">
         <div className="flex items-center gap-4 md:gap-6">
           <div className="bg-blue-600 p-2 md:p-3 rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.4)]">
             <LayoutGrid className="size-5 md:size-6 2xl:size-8" />
@@ -82,35 +107,45 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex items-center gap-4 md:gap-8">
+        <div className="flex items-center gap-4 md:gap-6">
           <div className="hidden md:flex items-center gap-3 text-[10px] 2xl:text-lg font-black tracking-widest text-emerald-400 bg-emerald-500/5 px-5 py-2.5 rounded-full border border-emerald-500/20">
             <div className="w-1.5 h-1.5 2xl:w-3 2xl:h-3 rounded-full bg-emerald-500 animate-pulse" />
             LIVE MONITORING
           </div>
+          
+          <button 
+            onClick={toggleFullscreen}
+            className="p-2 md:p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all flex items-center gap-2 group"
+            title="Alternar Tela Cheia"
+          >
+            {isFullscreen ? <Minimize className="size-4 md:size-5 2xl:size-8 text-blue-400" /> : <Maximize className="size-4 md:size-5 2xl:size-8 text-blue-400" />}
+            <span className="hidden sm:block text-[9px] 2xl:text-lg font-black text-gray-400 group-hover:text-white uppercase">Tela Cheia</span>
+          </button>
+
           <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-1.5 rounded-xl">
             <div className="w-8 h-8 2xl:w-14 2xl:h-14 rounded-lg 2xl:rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-400">
               <User size={18} className="2xl:size-8" />
             </div>
             <div className="hidden lg:block pr-4">
                <p className="text-[10px] 2xl:text-base font-black text-white leading-none">ADMIN_ROOT</p>
-               <p className="text-[8px] 2xl:text-sm font-bold text-gray-500 mt-1 uppercase">Sessão Ativa</p>
+               <p className="text-[8px] 2xl:text-sm font-bold text-gray-500 mt-1 uppercase tracking-widest">Ativo</p>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* HERO SECTION: Ocupa aprox 35% da altura */}
-      <div className="flex-none lg:flex lg:items-center justify-between gap-10 mb-6 2xl:mb-12 relative z-10">
+      {/* HERO SECTION: Ajustado para ser mais flexível */}
+      <div className="flex-none lg:flex lg:items-center justify-between gap-6 md:gap-10 mb-6 2xl:mb-10 relative z-10">
         <div className="flex-1">
-          <div className="flex items-center gap-3 text-blue-400 mb-2 md:mb-4">
-            <Activity size={16} className="2xl:size-8" />
-            <span className="text-[10px] 2xl:text-xl font-black uppercase tracking-[0.4em]">Fluxo de Dados em Tempo Real</span>
+          <div className="flex items-center gap-3 text-blue-400 mb-2 md:mb-3">
+            <Activity size={16} className="2xl:size-8 animate-pulse" />
+            <span className="text-[10px] 2xl:text-xl font-black uppercase tracking-[0.4em]">Gestão Urbana em Tempo Real</span>
           </div>
           <h2 className="text-6xl sm:text-8xl md:text-9xl 2xl:text-[14rem] font-black tracking-tighter leading-[0.8] mb-6 drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
             <AnimatedCounter target={total} />
           </h2>
           
-          <div className="h-14 md:h-20 2xl:h-28 w-full max-w-xl 2xl:max-w-4xl relative">
+          <div className="h-14 md:h-18 2xl:h-28 w-full max-w-xl 2xl:max-w-4xl relative">
             {highlights.map((item, idx) => (
               <div 
                 key={idx}
@@ -126,24 +161,24 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="ml-auto flex items-center gap-2 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
-                   <span className="text-[8px] 2xl:text-sm font-black text-blue-400 tracking-tighter">DATA_FEED</span>
+                   <span className="text-[8px] 2xl:text-sm font-black text-blue-400 tracking-tighter">FEED</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* STATUS PANEL: Apenas Desktop/TV */}
-        <div className="hidden lg:grid grid-cols-2 gap-4 w-[400px] 2xl:w-[700px]">
+        {/* STATUS PANEL: Visível em telas maiores para preencher o "retângulo" */}
+        <div className="hidden lg:grid grid-cols-2 gap-3 md:gap-4 w-[400px] 2xl:w-[700px]">
            <StatusBox label="SLA GLOBAL" value="94.2%" color="text-emerald-400" />
            <StatusBox label="UPTIME" value="99.9%" color="text-blue-400" />
            <StatusBox label="CONEXÕES" value="1.4k" color="text-indigo-400" />
-           <StatusBox label="NÍVEL ALERTA" value="BAIXO" color="text-emerald-500" />
+           <StatusBox label="ALERTAS" value="02" color="text-orange-500" />
         </div>
       </div>
 
-      {/* MAIN CONTENT AREA: Preenche o restante da altura (approx 55%) */}
-      <main className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 2xl:gap-10 overflow-hidden relative z-10">
+      {/* MAIN CONTENT AREA: Com rolagem interna se necessário em telas menores */}
+      <main className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 2xl:gap-10 overflow-hidden relative z-10 mb-4">
         
         {/* COLUNA 1: Métricas de Resumo */}
         <div className="flex flex-col gap-4 2xl:gap-8">
@@ -153,10 +188,10 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* COLUNA 2: Carga Operacional */}
-        <div className="bg-white/5 border border-white/10 rounded-[2rem] 2xl:rounded-[4rem] p-6 2xl:p-12 flex flex-col shadow-2xl overflow-hidden">
-           <div className="flex justify-between items-center mb-6 2xl:mb-12 shrink-0">
+        <div className="bg-white/5 border border-white/10 rounded-[2rem] 2xl:rounded-[4rem] p-6 2xl:p-12 flex flex-col shadow-2xl overflow-hidden min-h-[300px]">
+           <div className="flex justify-between items-center mb-6 2xl:mb-10 shrink-0">
               <h3 className="font-black text-xl 2xl:text-4xl tracking-tight">Carga Operacional</h3>
-              <Maximize size={16} className="text-gray-600" />
+              <div className="text-[8px] 2xl:text-lg font-black text-gray-500 tracking-[0.3em]">SEC_STATS</div>
            </div>
            <div className="flex-1 space-y-6 2xl:space-y-12 overflow-y-auto pr-2 custom-scrollbar">
               {METRICS_DATA.map((metric) => (
@@ -166,8 +201,9 @@ const Dashboard: React.FC = () => {
                     <span className="text-[10px] 2xl:text-xl font-black text-gray-500">{metric.totalPercentage}%</span>
                   </div>
                   <div className="w-full h-2 md:h-3 2xl:h-6 bg-white/5 rounded-full overflow-hidden flex ring-2 ring-white/5">
-                    <div className="bg-blue-600 h-full" style={{ width: `${metric.operational}%` }} />
+                    <div className="bg-blue-600 h-full shadow-[0_0_10px_rgba(37,99,235,0.5)]" style={{ width: `${metric.operational}%` }} />
                     <div className="bg-indigo-500 h-full" style={{ width: `${metric.fiscalization}%` }} />
+                    <div className="bg-white/5 h-full" style={{ width: `${metric.administrative}%` }} />
                   </div>
                 </div>
               ))}
@@ -175,14 +211,14 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* COLUNA 3: Ranking Eficiência */}
-        <div className="bg-white/5 border border-white/10 rounded-[2rem] 2xl:rounded-[4rem] p-6 2xl:p-12 flex flex-col shadow-2xl overflow-hidden">
-           <h3 className="font-black text-xl 2xl:text-4xl mb-6 2xl:mb-12 tracking-tight shrink-0 flex items-center gap-3">
-             <Star className="text-yellow-500 size-5 2xl:size-10" /> Eficiência Depto
+        <div className="bg-white/5 border border-white/10 rounded-[2rem] 2xl:rounded-[4rem] p-6 2xl:p-12 flex flex-col shadow-2xl overflow-hidden min-h-[300px]">
+           <h3 className="font-black text-xl 2xl:text-4xl mb-6 2xl:mb-10 tracking-tight shrink-0 flex items-center gap-3">
+             <Star className="text-yellow-500 size-5 2xl:size-10 fill-current" /> Eficiência Depto
            </h3>
-           <div className="flex-1 space-y-4 2xl:space-y-10 overflow-y-auto pr-2 custom-scrollbar">
+           <div className="flex-1 space-y-4 2xl:space-y-8 overflow-y-auto pr-2 custom-scrollbar">
               {EFFICIENCY_DATA.map((dept) => (
                 <div key={dept.id} className="p-4 2xl:p-8 bg-white/[0.03] rounded-2xl 2xl:rounded-[2.5rem] border border-white/5 hover:bg-white/[0.07] transition-all">
-                  <div className="flex items-center gap-3 md:gap-4 2xl:gap-8 mb-3 2xl:mb-6">
+                  <div className="flex items-center gap-3 md:gap-4 2xl:gap-8 mb-3 2xl:mb-5">
                     <div className="w-10 h-10 2xl:w-20 2xl:h-20 rounded-xl bg-white/10 flex items-center justify-center font-black text-[10px] 2xl:text-2xl text-blue-400 shrink-0">
                       {dept.code}
                     </div>
@@ -190,12 +226,12 @@ const Dashboard: React.FC = () => {
                       <h4 className="font-bold text-xs 2xl:text-3xl truncate">{dept.name}</h4>
                       <p className="text-[8px] 2xl:text-lg font-bold text-gray-500 uppercase tracking-widest">{dept.solicitations}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                        <p className="text-lg 2xl:text-5xl font-black text-emerald-400 leading-none">{dept.efficiency}%</p>
                     </div>
                   </div>
                   <div className="w-full h-1.5 2xl:h-4 bg-white/10 rounded-full overflow-hidden">
-                    <div className={`h-full ${dept.color} transition-all duration-[2s] rounded-full`} style={{ width: `${dept.efficiency}%` }} />
+                    <div className={`h-full ${dept.color} transition-all duration-[2s] rounded-full shadow-[0_0_10px_rgba(0,0,0,0.3)]`} style={{ width: `${dept.efficiency}%` }} />
                   </div>
                 </div>
               ))}
@@ -203,16 +239,16 @@ const Dashboard: React.FC = () => {
         </div>
       </main>
 
-      {/* FOOTER BAR: Apenas TV/Monitor */}
-      <footer className="mt-4 2xl:mt-10 pt-4 2xl:pt-10 border-t border-white/5 flex items-center justify-between text-[8px] 2xl:text-base font-black text-gray-600 uppercase tracking-[0.3em] shrink-0 relative z-10">
+      {/* FOOTER BAR: Fixo no rodapé para manter a estética de retângulo */}
+      <footer className="mt-auto pt-4 md:pt-6 border-t border-white/5 flex items-center justify-between text-[8px] 2xl:text-base font-black text-gray-600 uppercase tracking-[0.3em] shrink-0 relative z-10">
          <div className="flex items-center gap-6">
             <span>TERMINAL: CN-JPA-01</span>
-            <span className="text-blue-600/50">SECURED_ENCRYPTION_ACTIVE</span>
+            <span className="hidden sm:inline text-blue-600/50">SECURED_ENCRYPTION_ACTIVE</span>
          </div>
          <div className="flex items-center gap-4">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>ESTÁVEL</span>
-            <span className="ml-4 text-gray-800">© 2025 CIDADE CONECTADA PLATFORM</span>
+            <span className="ml-4 text-gray-800">© 2025 CIDADE CONECTADA</span>
          </div>
       </footer>
     </div>
@@ -220,24 +256,23 @@ const Dashboard: React.FC = () => {
 };
 
 const StatusBox: React.FC<{ label: string; value: string; color: string }> = ({ label, value, color }) => (
-  <div className="bg-white/5 border border-white/10 p-5 2xl:p-10 rounded-3xl backdrop-blur-md">
-    <p className="text-[8px] 2xl:text-lg font-black text-gray-500 uppercase tracking-widest mb-1">{label}</p>
+  <div className="bg-white/5 border border-white/10 p-4 2xl:p-10 rounded-3xl backdrop-blur-md hover:bg-white/10 transition-all group">
+    <p className="text-[8px] 2xl:text-lg font-black text-gray-500 uppercase tracking-widest mb-1 group-hover:text-gray-300">{label}</p>
     <p className={`text-2xl 2xl:text-6xl font-black ${color}`}>{value}</p>
   </div>
 );
 
 const CompactMetricCard: React.FC<{ label: string; value: number; icon: React.ReactNode; color: string }> = ({ label, value, icon, color }) => (
-  <div className="flex-1 bg-white/5 border border-white/10 rounded-3xl 2xl:rounded-[3rem] p-5 2xl:p-12 flex flex-col justify-center relative overflow-hidden hover:bg-white/[0.08] transition-all group">
-    <div className="flex justify-between items-start mb-2 2xl:mb-8 relative z-10">
+  <div className="flex-1 bg-white/5 border border-white/10 rounded-3xl 2xl:rounded-[3rem] p-5 2xl:p-10 flex flex-col justify-center relative overflow-hidden hover:bg-white/[0.08] transition-all group">
+    <div className="flex justify-between items-start mb-2 2xl:mb-6 relative z-10">
       <p className="text-blue-500 font-black text-[9px] 2xl:text-xl tracking-widest uppercase">{label}</p>
       <div className={`text-${color}-500 opacity-40 group-hover:opacity-100 transition-opacity`}>
-        {React.isValidElement(icon) && React.cloneElement(icon as React.ReactElement<any>, { className: 'size-4 2xl:size-10' })}
+        {React.isValidElement(icon) && React.cloneElement(icon as React.ReactElement<any>, { className: 'size-4 md:size-5 2xl:size-10' })}
       </div>
     </div>
-    <p className="text-4xl 2xl:text-8xl font-black tracking-tighter text-white relative z-10">
+    <p className="text-4xl 2xl:text-8xl font-black tracking-tighter text-white relative z-10 leading-none">
       <AnimatedCounter target={value} />
     </p>
-    {/* Efeito decorativo */}
     <div className={`absolute -right-4 -bottom-4 w-24 h-24 2xl:w-48 2xl:h-48 bg-${color}-500/5 rounded-full blur-2xl group-hover:bg-${color}-500/10 transition-all`} />
   </div>
 );
